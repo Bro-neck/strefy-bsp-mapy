@@ -8,19 +8,23 @@
   Strona wyświetlana w oknie wtyczki DJI Pilot 2 (komponent RemoteWebView).
   Opublikuj ją pod dowolnym adresem HTTPS (np. GitHub Pages) i wpisz ten adres w ustawieniach wtyczki.
   Wtyczka dokleja parametry: ?lat=..&lng=..&z=..  (pozycja drona, odświeżana na bieżąco).
-  Opcjonalnie: &layer=orto|osm|topo  – podkład startowy.
+  Opcjonalnie: &layer=orto|mapa|topo  – podkład startowy.
 -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
   html, body, #map { margin: 0; height: 100%; background: #111; font-family: Arial, sans-serif; }
-  .bar { position: absolute; z-index: 1000; top: 6px; left: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  /* Okno w Pilocie ma ok. 150 dp szerokości – wszystko musi być kompaktowe */
+  .bar { position: absolute; z-index: 1000; top: 3px; left: 3px; right: 3px; display: flex; gap: 2px; }
   .bar button {
-    font: bold 12px Arial, sans-serif; color: #fff; background: rgba(30,30,30,.85);
-    border: 1px solid #555; border-radius: 4px; padding: 6px 9px;
+    flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden;
+    font: bold 9px Arial, sans-serif; color: #fff; background: rgba(30,30,30,.85);
+    border: 1px solid #555; border-radius: 3px; padding: 3px 1px;
   }
   .bar button.on { background: #E11F1C; border-color: #E11F1C; }
-  .info { position: absolute; z-index: 1000; bottom: 4px; left: 6px; color: #ddd; font-size: 10px;
-          background: rgba(0,0,0,.55); padding: 2px 5px; border-radius: 3px; }
+  .info { position: absolute; z-index: 1000; top: 24px; left: 3px; color: #eee; font-size: 8px;
+          background: rgba(0,0,0,.6); padding: 1px 4px; border-radius: 3px; }
+  .leaflet-control-attribution { font-size: 6px !important; line-height: 1.2; max-width: 100%;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(255,255,255,.6) !important; }
 </style>
 </head>
 <body>
@@ -36,18 +40,20 @@
   var z = parseInt(q.get('z'), 10) || 14;
 
   var map = L.map('map', { zoomControl: false, attributionControl: true }).setView([lat, lng], z);
+  map.attributionControl.setPrefix(false);
 
   // Podkłady bazowe
   var layers = {
     orto: L.tileLayer.wms('https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution', {
       layers: 'Raster', format: 'image/jpeg', version: '1.3.0', crs: L.CRS.EPSG4326,
-      maxZoom: 20, attribution: 'Ortofotomapa © GUGiK (geoportal.gov.pl)'
+      maxZoom: 20, attribution: 'Orto © GUGiK'
     }),
-    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap'
+    // Kafelki tile.openstreetmap.org blokują WebView w Pilocie (polityka OSMF) – używamy CARTO Voyager (dane OSM)
+    mapa: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
+      subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO'
     }),
     topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17, attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)'
+      maxZoom: 17, maxNativeZoom: 17, attribution: '© OSM, SRTM, OpenTopoMap'
     })
   };
   // Nakładki
@@ -57,8 +63,9 @@
       attribution: 'PRG © GUGiK'
     })
   };
-  var labels = { orto: 'Ortofoto', osm: 'OSM', topo: 'Topo' };
-  var current = labels[q.get('layer')] ? q.get('layer') : 'orto';
+  var labels = { orto: 'Orto', mapa: 'Mapa', topo: 'Topo' };
+  var want = q.get('layer') === 'osm' ? 'mapa' : q.get('layer');
+  var current = labels[want] ? want : 'orto';
 
   var bar = document.getElementById('bar');
   function render() {
@@ -71,7 +78,7 @@
       bar.appendChild(b);
     });
     var g = document.createElement('button');
-    g.textContent = 'Granice gmin';
+    g.textContent = 'Gminy';
     if (map.hasLayer(overlays.granice)) g.className = 'on';
     g.onclick = function () {
       if (map.hasLayer(overlays.granice)) map.removeLayer(overlays.granice); else overlays.granice.addTo(map);
@@ -93,7 +100,7 @@
     radius: 7, color: '#fff', weight: 2, fillColor: '#E11F1C', fillOpacity: 1
   }).addTo(map).bindTooltip('Dron', { permanent: false });
   document.getElementById('info').textContent =
-    'Dron: ' + lat.toFixed(5) + ', ' + lng.toFixed(5) + ' · strefy BSP widoczne na mapie Pilot';
+    'Dron ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
 })();
 </script>
 </body>
