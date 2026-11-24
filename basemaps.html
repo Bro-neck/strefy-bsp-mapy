@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Podkłady mapowe – wtyczka Strefy BSP</title>
+<!--
+  Strona wyświetlana w oknie wtyczki DJI Pilot 2 (komponent RemoteWebView).
+  Opublikuj ją pod dowolnym adresem HTTPS (np. GitHub Pages) i wpisz ten adres w ustawieniach wtyczki.
+  Wtyczka dokleja parametry: ?lat=..&lng=..&z=..  (pozycja drona, odświeżana na bieżąco).
+  Opcjonalnie: &layer=orto|osm|topo  – podkład startowy.
+-->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+  html, body, #map { margin: 0; height: 100%; background: #111; font-family: Arial, sans-serif; }
+  .bar { position: absolute; z-index: 1000; top: 6px; left: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .bar button {
+    font: bold 12px Arial, sans-serif; color: #fff; background: rgba(30,30,30,.85);
+    border: 1px solid #555; border-radius: 4px; padding: 6px 9px;
+  }
+  .bar button.on { background: #E11F1C; border-color: #E11F1C; }
+  .info { position: absolute; z-index: 1000; bottom: 4px; left: 6px; color: #ddd; font-size: 10px;
+          background: rgba(0,0,0,.55); padding: 2px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="bar" id="bar"></div>
+<div class="info" id="info"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var lat = parseFloat(q.get('lat')) || 52.2297;
+  var lng = parseFloat(q.get('lng')) || 21.0122;
+  var z = parseInt(q.get('z'), 10) || 14;
+
+  var map = L.map('map', { zoomControl: false, attributionControl: true }).setView([lat, lng], z);
+
+  // Podkłady bazowe
+  var layers = {
+    orto: L.tileLayer.wms('https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution', {
+      layers: 'Raster', format: 'image/jpeg', version: '1.3.0', crs: L.CRS.EPSG4326,
+      maxZoom: 20, attribution: 'Ortofotomapa © GUGiK (geoportal.gov.pl)'
+    }),
+    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17, attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)'
+    })
+  };
+  // Nakładki
+  var overlays = {
+    granice: L.tileLayer.wms('https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WMS/AdministrativeBoundaries', {
+      layers: 'A03_Granice_gmin', format: 'image/png', transparent: true, version: '1.3.0', crs: L.CRS.EPSG4326,
+      attribution: 'PRG © GUGiK'
+    })
+  };
+  var labels = { orto: 'Ortofoto', osm: 'OSM', topo: 'Topo' };
+  var current = labels[q.get('layer')] ? q.get('layer') : 'orto';
+
+  var bar = document.getElementById('bar');
+  function render() {
+    bar.innerHTML = '';
+    Object.keys(layers).forEach(function (k) {
+      var b = document.createElement('button');
+      b.textContent = labels[k];
+      if (k === current) b.className = 'on';
+      b.onclick = function () { setBase(k); };
+      bar.appendChild(b);
+    });
+    var g = document.createElement('button');
+    g.textContent = 'Granice gmin';
+    if (map.hasLayer(overlays.granice)) g.className = 'on';
+    g.onclick = function () {
+      if (map.hasLayer(overlays.granice)) map.removeLayer(overlays.granice); else overlays.granice.addTo(map);
+      render();
+    };
+    bar.appendChild(g);
+  }
+  function setBase(k) {
+    map.removeLayer(layers[current]);
+    current = k;
+    layers[k].addTo(map);
+    render();
+  }
+  layers[current].addTo(map);
+  render();
+
+  // Dron
+  var drone = L.circleMarker([lat, lng], {
+    radius: 7, color: '#fff', weight: 2, fillColor: '#E11F1C', fillOpacity: 1
+  }).addTo(map).bindTooltip('Dron', { permanent: false });
+  document.getElementById('info').textContent =
+    'Dron: ' + lat.toFixed(5) + ', ' + lng.toFixed(5) + ' · strefy BSP widoczne na mapie Pilot';
+})();
+</script>
+</body>
+</html>
