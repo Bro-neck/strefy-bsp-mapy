@@ -39,7 +39,7 @@
   var lng = parseFloat(q.get('lng')) || 21.0122;
   var z = parseInt(q.get('z'), 10) || 14;
 
-  var map = L.map('map', { zoomControl: false, attributionControl: true }).setView([lat, lng], z);
+  var map = L.map('map', { zoomControl: false, attributionControl: true, minZoom: 5, maxZoom: 19 }).setView([lat, lng], z);
   map.attributionControl.setPrefix(false);
 
   // Podkłady bazowe
@@ -48,10 +48,15 @@
       layers: 'Raster', format: 'image/jpeg', version: '1.3.0', crs: L.CRS.EPSG4326,
       maxZoom: 20, attribution: 'Orto © GUGiK'
     }),
-    // Kafelki tile.openstreetmap.org blokują WebView w Pilocie (polityka OSMF) – używamy CARTO Voyager (dane OSM)
-    mapa: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
-      subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO'
-    }),
+    // Mapa topograficzna BDOT10k (GUGiK, dane otwarte, bez klucza). Serwis rysuje treść tylko w dużych skalach,
+    // więc poniżej zoomu 14 pokazujemy OpenTopoMap. (tile.openstreetmap.org blokuje WebView, CARTO wymaga klucza.)
+    mapa: L.layerGroup([
+      L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 13, attribution: '© OSM, OpenTopoMap' }),
+      L.tileLayer.wms('https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer', {
+        layers: 'RZab,TPrz,SOd2,SOd1,GNu2,GNu1,TKa2,TKa1,TPi2,TPi1,UTrw,TLes,RKr,RTr,ku7,ku6,ku5,ku4,ku3,ku2,ku1,Mo,Pl3,Pl2,Pl1,kanOkr,rzOk,row,kan,rz,RowEt,kanEt,rzEt,WPow,Szu,LBrzN,LBrz,WPowEt,GrPol,Rez,GrPK,GrPN,GrDz,GrGm,GrPo,GrWo,GrPns,PRur,ZbTA,BudCm,TerCm,BudSp,Szkl,Kap,SwNch,SwCh,BudZr,BudGo,BudPWy,BudP2,BudP1,BudUWy,BudU,BudMWy,BudMJ,BudMW,Bzn,BHydA,BHydL,wyk,wa6,wa5,wa4,wa3,wa2,wa1,IUTA,ObOrA,ObPL,Prom,PomL,MurH,PerA,PerL,Tryb,UTrL,LTra,LKNc,LKBu,LKWs,TSt,LKNelJ,LKNelD,LKNelW,LKZelJ,LKZelD,LKZelW,Scz,Al,AlEt,Sch2,Sch1,DrDGr,DrLGr,JDrLNUt,JDLNTw,JDrZTw,JDrG,DrEk,JDrEk,AuBud,JAu,NazDr,NrDr,Umo,PPdz,Prze,TunK,TunD,Klad,MosK,MosD,UTrP,ObKom,InUTP,ZbTP,NazUl,ObOrP,WyBT,LTel,LEle,ObPP,DrzPomP,e13,e12,e11,e10,e9,e8,e7,e6,e5,e4,e3,e2,e1,s19,s18,s17,s16,s15,s14,s13,s12,s11,s10,s9,s8,s7,s6,s5,s4,s3,s2,s1',
+        format: 'image/png', version: '1.1.1', minZoom: 14, maxZoom: 20, attribution: 'BDOT10k © GUGiK'
+      })
+    ]),
     topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
       maxZoom: 17, maxNativeZoom: 17, attribution: '© OSM, SRTM, OpenTopoMap'
     })
